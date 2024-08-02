@@ -1,4 +1,5 @@
-##### **Simple royalties distribution example**
+## **Simple royalties distribution example 
+(Full contract owner control)**
 
 1. git clone this repo
 2. Create a .env file for your private key
