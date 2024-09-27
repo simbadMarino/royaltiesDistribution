@@ -6,7 +6,7 @@
 4) Distribute USDT depending on each shareholder shares
 5) Modify TRC20 token contract address
 */
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.20;
 
 
 interface ITRC20 {
