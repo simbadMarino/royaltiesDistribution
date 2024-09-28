@@ -6,10 +6,8 @@
 4) Distribute USDT depending on each shareholder shares
 5) Modify TRC20 token contract address
 */
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 interface ITRC20 {
     function transfer(
@@ -20,14 +18,14 @@ interface ITRC20 {
     function balanceOf(address account) external view returns (uint256);
 }
 
-contract RoyaltiesDistribution is Ownable {
-    using SafeMath for uint256;
-
+contract RoyaltiesDistribution {
+    
     struct Payee {
         address account;
         uint256 share;
     }
 
+    address public owner;
     ITRC20 public usdtToken;
     Payee[] public payees;
     uint256 public totalShares;
@@ -38,25 +36,40 @@ contract RoyaltiesDistribution is Ownable {
     event DistributionFailed(address account, uint256 amount);
     event TokenContractUpdated(address newTokenContract);
 
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Only owner may call function");
+        _;
+    }
+
     constructor(address _usdtToken) {
+        owner = msg.sender;
         usdtToken = ITRC20(_usdtToken);
         totalShares = 0;
     }
 
+    /**
+     * @notice Adds a new payee with a specified share
+     * @param account Address of new payee
+     * @param share Number of shares
+     */
     function addPayee(address account, uint256 share) external onlyOwner {
         require(account != address(0), "Account is the zero address"); //This helps to protect users from adding the 0 address (burn address)
         require(share > 0, "Share must be greater than zero");
         payees.push(Payee(account, share));
-        totalShares = totalShares.add(share);
+        totalShares = totalShares + share;
         emit PayeeAdded(account, share);
     }
 
+    /**
+     * @notice Removes an existing payee
+     * @param account Address of payee to remove
+     */
     function removePayee(address account) external onlyOwner {
         require(account != address(0), "Account is the zero address");
 
         for (uint256 i = 0; i < payees.length; i++) {
             if (payees[i].account == account) {
-                totalShares = totalShares.sub(payees[i].share); //Deduct the to be removed account shares from the total shares
+                totalShares = totalShares - payees[i].share ; //Deduct the to be removed account shares from the total shares
 
                 // Swap with the last element and pop
                 payees[i] = payees[payees.length - 1];
@@ -68,6 +81,10 @@ contract RoyaltiesDistribution is Ownable {
         }
     }
 
+    /**
+     * @notice Updates the token contract address for distribution
+     * @param newTokenContract Address of new token for this contract to distribute
+     */
     function updateTokenContract(address newTokenContract) external onlyOwner {
         require(
             newTokenContract != address(0),
@@ -77,6 +94,9 @@ contract RoyaltiesDistribution is Ownable {
         emit TokenContractUpdated(newTokenContract);
     }
 
+    /**
+     * @notice Distributes royalties to all payees based on their shares
+     */
     function distributeRoyalties() external onlyOwner {
         require(totalShares > 0, "No shares defined");
         uint256 totalAmount = usdtToken.balanceOf(address(this));
@@ -84,8 +104,9 @@ contract RoyaltiesDistribution is Ownable {
 
         for (uint256 i = 0; i < payees.length; i++) {
             Payee memory payee = payees[i];
-            uint256 payment = totalAmount.mul(payee.share).div(totalShares);
+            uint256 payment = ( totalAmount * payee.share) / totalShares;
             bool success = usdtToken.transfer(payee.account, payment);
+
             if (!success) {
                 emit DistributionFailed(payee.account, payment);
                 revert("USDT transfer failed");
@@ -93,13 +114,5 @@ contract RoyaltiesDistribution is Ownable {
         }
 
         emit RoyaltiesDistributed(totalAmount);
-    }
-
-    function getPayees() external view returns (Payee[] memory) {
-        return payees;
-    }
-
-    function getTotalShares() external view returns (uint256) {
-        return totalShares;
     }
 }
