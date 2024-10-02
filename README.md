@@ -1,5 +1,19 @@
-## **Simple royalties distribution example (Full contract owner control)**
+## **Simple royalties distribution example**
 
+### tronide deployment instructions
+
+1. Delete default workspace and create your own in tronide.io.
+2. Delete tests folder and all other files under the "contracts" folder.
+3. Create a new empty RoyaltiesDistribution.sol file. TRON-IDE Interface should look like this: <img width="776" alt="image" src="https://github.com/user-attachments/assets/7a16a9a8-46e5-4e6a-a620-7b5fc246c1bc">
+
+4. Copy the Solidity code from https://github.com/simbadMarino/royaltiesDistribution/blob/main/tronbox/contracts/RoyaltiesDistribution.sol and paste into tronide created file.
+5. Save file by Ctrl+S(Win or Linux) or Cmd+S(mac). If a compiler issue appears on the pragma code line make sure to switch to the correct solidity version (0.8.20) under the compiler section.
+
+   <img width="348" alt="image" src="https://github.com/user-attachments/assets/6bacb46b-deab-4750-bb53-b51f7fd96590">
+
+8. Click on Compile
+
+### tronbox deployment instructions
 1. git clone this repo
 2. Create a .env file for your private key
    You have to select your desired network depending on where do you want to deploy your contract.
@@ -10,3 +24,6 @@
 4. Deploy your contract: `source .env && tronbox migrate --network nile ` (Example for nile testnet, you can use shasta or mainnet instead in the network argument
 
 For details on how to use tronbox please refer to https://github.com/tronprotocol/tronbox or https://developers.tron.network/reference/tronbox-command-line
+
+
+
