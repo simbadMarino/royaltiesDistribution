@@ -8,7 +8,6 @@
 */
 pragma solidity ^0.8.20;
 
-
 interface ITRC20 {
     function transfer(
         address recipient,
@@ -19,8 +18,8 @@ interface ITRC20 {
 }
 
 contract RoyaltiesDistribution {
-    
     struct Payee {
+        //Shareholder
         address account;
         uint256 share;
     }
@@ -69,7 +68,7 @@ contract RoyaltiesDistribution {
 
         for (uint256 i = 0; i < payees.length; i++) {
             if (payees[i].account == account) {
-                totalShares = totalShares - payees[i].share ; //Deduct the to be removed account shares from the total shares
+                totalShares = totalShares - payees[i].share; //Deduct the to be removed account shares from the total shares
 
                 // Swap with the last element and pop
                 payees[i] = payees[payees.length - 1];
@@ -104,7 +103,7 @@ contract RoyaltiesDistribution {
 
         for (uint256 i = 0; i < payees.length; i++) {
             Payee memory payee = payees[i];
-            uint256 payment = ( totalAmount * payee.share) / totalShares;
+            uint256 payment = (totalAmount * payee.share) / totalShares;
             bool success = usdtToken.transfer(payee.account, payment);
 
             if (!success) {

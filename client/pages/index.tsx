@@ -3,6 +3,7 @@ import styles from '../styles/Home.module.css';
 import RoyaltiesABI from '../abi/RoyaltiesDistribution.json';
 import RoyaltiesBytecode from '../bytecode/Royalties.json';
 
+
 declare global {
   interface Window {
     tronWeb: any;
@@ -10,7 +11,7 @@ declare global {
 }
 
 export default function Home() {
-  const [tronWeb, setTronWeb] = useState<any>(null);
+  const [tronWebFlag, setTronWebFlag] = useState<any>(null);  //<--- Puede que el issue este en esta variable confundida con instancia tronweb
   const [contract, setContract] = useState<any>(null);
   const [account, setAccount] = useState<string | null>(null);
   const [isContractDeployed, setIsContractDeployed] = useState<boolean>(false);
@@ -20,9 +21,11 @@ export default function Home() {
   useEffect(() => {
     const initTronWeb = async () => {
       if (window.tronWeb && window.tronWeb.ready) {
-        setTronWeb(window.tronWeb);
+        setAccount(window.tronWeb.defaultAddress.base58);
+        setTronWebFlag(true);
         const acc = await window.tronWeb.trx.getAccount();
-        setAccount(acc.address);
+        console.log(acc.address);
+        //setAccount(acc.address);
       }
     };
 
@@ -34,7 +37,7 @@ export default function Home() {
       try {
         await window.tronWeb.request({ method: 'tron_requestAccounts' });
         const acc = await window.tronWeb.trx.getAccount();
-        setAccount(acc.address);
+        setAccount(window.tronWeb.defaultAddress.base58);
       } catch (error) {
         console.error('Failed to connect wallet:', error);
       }
@@ -44,31 +47,38 @@ export default function Home() {
   };
 
   const deployContract = async () => {
-    if (!tronWeb) {
+    if (!tronWebFlag) {
       alert('Please connect your wallet first');
       return;
     }
 
     setIsDeploying(true);
+    console.log(RoyaltiesABI.abi);
+    console.log(RoyaltiesBytecode.object);
 
     try {
-      const contract_instance = await tronWeb.contract().new({
+      let transaction = await window.tronWeb.transactionBuilder.createSmartContract({
         abi: RoyaltiesABI.abi,
         bytecode: RoyaltiesBytecode.object,
-        feeLimit: 1000000000,
+        feeLimit: 400000000,
         callValue: 0,
-        userFeePercentage: 1,
+        userFeePercentage: 50,
         originEnergyLimit: 10000000,
         parameters: ['TXYZopYRdj2D9XRtbG411XZZ3kM5VkAeBf'],
-        from: window.tronWeb.trx.getAccount(), 
-      });
 
-      console.log('Contract deployed at:', contract_instance.address);
-      setContractAddress(contract_instance.address);
+      }, window.tronWeb.defaultAddress.hex);
+
+      console.log(transaction.address);
+
+      const signedTransaction = await window.tronWeb.trx.sign(transaction);
+      const contract_instance = await window.tronWeb.trx.sendRawTransaction(signedTransaction);
+
+      console.log('Contract deployed at:', contract_instance.transaction.contract_address);
+      setContractAddress(contract_instance.transaction.contract_address);
       setIsContractDeployed(true);
 
-      const instance = await tronWeb.contract(RoyaltiesABI, contract_instance.address);
-      setContract(instance);
+      // const instance = await window.tronWeb.contract(RoyaltiesABI, contract_instance.address);
+      setContract(contract_instance);
     } catch (error) {
       console.error('Failed to deploy contract:', error);
       alert('Failed to deploy contract. Please check the console for details.');
@@ -77,8 +87,10 @@ export default function Home() {
     }
   };
 
+
+
   const addPayee = async () => {
-    if (!tronWeb || !contract) {
+    if (!tronWebFlag || !contract) {
       alert('Please connect your wallet and deploy the contract first');
       return;
     }
@@ -92,12 +104,12 @@ export default function Home() {
     }
 
     try {
-      const result = await executeTransaction(
-        'addPayee(address,uint256)',
-        [address, parseInt(share)],
-        { feeLimit: 1000000000 }
-      );
-      console.log('Payee added:', result);
+
+      let contract = await window.tronWeb.contract(RoyaltiesABI.abi, contractAddress);
+      let txID = await contract.addPayee(address, share).send();
+      let result = await window.tronWeb.trx.getTransaction(txID);
+      console.log("Execution result:", result);
+      //console.log('Payee added:', result);
       alert('Payee added successfully');
     } catch (error) {
       console.error('Failed to add payee:', error);
@@ -106,7 +118,7 @@ export default function Home() {
   };
 
   const removePayee = async () => {
-    if (!tronWeb || !contract) {
+    if (!tronWebFlag || !contract) {
       alert('Please connect your wallet and deploy the contract first');
       return;
     }
@@ -119,11 +131,10 @@ export default function Home() {
     }
 
     try {
-      const result = await executeTransaction(
-        'removePayee(address)',
-        [address],
-        { feeLimit: 1000000000 }
-      );
+
+      let contract = await window.tronWeb.contract(RoyaltiesABI.abi, contractAddress);
+      let txID = await contract.removePayee(address).send();
+      let result = await window.tronWeb.trx.getTransaction(txID);
       console.log('Payee removed:', result);
       alert('Payee removed successfully');
     } catch (error) {
@@ -133,7 +144,7 @@ export default function Home() {
   };
 
   const updateTokenContract = async () => {
-    if (!tronWeb || !contract) {
+    if (!tronWebFlag || !contract) {
       alert('Please connect your wallet and deploy the contract first');
       return;
     }
@@ -146,11 +157,10 @@ export default function Home() {
     }
 
     try {
-      const result = await executeTransaction(
-        'updateTokenContract(address)',
-        [newTokenAddress],
-        { feeLimit: 1000000000 }
-      );
+
+      let contract = await window.tronWeb.contract(RoyaltiesABI.abi, contractAddress);
+      let txID = await contract.updateTokenContract(newTokenAddress).send();
+      let result = await window.tronWeb.trx.getTransaction(txID);
       console.log('Token contract updated:', result);
       alert('Token contract updated successfully');
     } catch (error) {
@@ -160,95 +170,26 @@ export default function Home() {
   };
 
   const distributeRoyalties = async () => {
-    if (!tronWeb || !contract) {
+    if (!tronWebFlag || !contract) {
       alert('Please connect your wallet and deploy the contract first');
       return;
     }
 
     try {
-      const result = await executeTransaction(
+      /*const result = await executeTransaction(
         'distributeRoyalties()',
         [],
         { feeLimit: 1000000000 }
-      );
+      );*/
+      let contract = await window.tronWeb.contract(RoyaltiesABI.abi, contractAddress);
+      let txID = await contract.distributeRoyalties().send();
+      let result = await window.tronWeb.trx.getTransaction(txID);
       console.log('Royalties distributed:', result);
       alert('Royalties distributed successfully');
     } catch (error) {
       console.error('Failed to distribute royalties:', error);
       alert('Failed to distribute royalties. Please check the console for details.');
     }
-  };
-
-  const viewPayees = async () => {
-    if (!tronWeb || !contract) {
-      alert('Please connect your wallet and deploy the contract first');
-      return;
-    }
-
-    try {
-      const totalShares = await contract.totalShares().call();
-      let payees = [];
-      let i = 0;
-
-      while (true) {
-        try {
-          const payee = await contract.payees(i).call();
-          payees.push({ account: payee.account, share: payee.share.toString() });
-          i++;
-        } catch (error) {
-          break; 
-        }
-      }
-
-      console.log('Total Shares:', totalShares.toString());
-      console.log('Payees:', payees);
-      alert(`Total Shares: ${totalShares}\n\nPayees:\n${payees.map(p => `${p.account}: ${p.share} shares`).join('\n')}`);
-    } catch (error) {
-      console.error('Failed to view payees:', error);
-      alert('Failed to view payees. Please check the console for details.');
-    }
-  };
-
-  const viewFunds = async () => {
-    if (!tronWeb || !contract) {
-      alert('Please connect your wallet and deploy the contract first');
-      return;
-    }
-
-    try {
-      const usdtTokenAddress = await contract.usdtToken().call();
-      const usdtContract = await tronWeb.contract().at(usdtTokenAddress);
-      const balance = await usdtContract.balanceOf(contractAddress).call();
-      console.log('Contract USDT balance:', balance.toString());
-      alert(`Contract USDT balance: ${balance} (in smallest unit)`);
-    } catch (error) {
-      console.error('Failed to view funds:', error);
-      alert('Failed to view funds. Please check the console for details.');
-    }
-  };
-
-  const executeTransaction = async (functionSelector: string, parameters: any[] = [], options: any = {}) => {
-    if (!tronWeb || !contract) {
-      throw new Error('TronWeb or contract not initialized');
-    }
-
-    const issuerAddress = account;
-    const transactionWrap = await tronWeb.transactionBuilder.triggerSmartContract(
-      contractAddress,
-      functionSelector,
-      options,
-      parameters,
-      issuerAddress
-    );
-
-    if (!transactionWrap.result || !transactionWrap.result.result) {
-      throw new Error('Transaction creation failed');
-    }
-
-    const signedTx = await tronWeb.trx.sign(transactionWrap.transaction);
-    const receipt = await tronWeb.trx.sendRawTransaction(signedTx);
-
-    return receipt;
   };
 
   return (
@@ -259,8 +200,8 @@ export default function Home() {
             {account ? `Connected: ${account.slice(0, 6)}...${account.slice(-4)}` : 'Connect Wallet'}
           </button>
         </div>
-        <h1 className={styles.title}>Royalties</h1>
-        <div></div> 
+        <h1 className={styles.title}>Royalties Distribution Demo</h1>
+        <div></div>
       </header>
       <main className={styles.main}>
         {isContractDeployed ? (
@@ -269,13 +210,11 @@ export default function Home() {
             <button className={styles.button} onClick={removePayee}>Remove Payee</button>
             <button className={styles.button} onClick={updateTokenContract}>Update Token Contract</button>
             <button className={styles.button} onClick={distributeRoyalties}>Distribute Royalties</button>
-            <button className={styles.button} onClick={viewPayees}>View Payees</button>
-            <button className={styles.button} onClick={viewFunds}>View Funds</button>
           </div>
         ) : (
           <div className={styles.deployButtonWrapper}>
-            <button 
-              className={styles.deployButton} 
+            <button
+              className={styles.deployButton}
               onClick={deployContract}
               disabled={isDeploying || !account}
             >
